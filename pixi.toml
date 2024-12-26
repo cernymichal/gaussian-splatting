@@ -1,0 +1,36 @@
+[project]
+authors = ["Michal Černý <33428111+cernymichal@users.noreply.github.com>"]
+channels = ["pytorch", "nvidia", "conda-forge"]
+description = "Add a short description here"
+name = "gaussian_splatting"
+platforms = ["win-64"]
+version = "0.1.0"
+
+[tasks]
+
+[system-requirements]
+cuda = "12.1"
+
+[dependencies]
+python = "3.8.*"
+pytorch = ">=2.4.1,<3"
+pytorch-cuda = "12.1.*"
+cuda-version = "12.1"
+torchaudio = ">=2.4.1,<3"
+torchvision = ">=0.20.0,<0.21"
+plyfile = "*"
+tqdm = "*"
+
+ninja = "*"
+setuptools = "*"
+cuda = "12.1.*"
+
+[pypi-options]
+no-build-isolation = ["diff-gaussian-rasterization", "simple-knn", "fused-ssim"]
+
+[pypi-dependencies]
+diff-gaussian-rasterization = { path = "submodules/diff-gaussian-rasterization", editable = true }
+simple-knn = { path = "submodules/simple-knn", editable = true }
+fused-ssim = { path = "submodules/fused-ssim", editable = true }
+opencv-python = "*"
+joblib = "*"
