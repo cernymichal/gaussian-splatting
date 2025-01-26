@@ -7,7 +7,7 @@ platforms = ["win-64", "linux-64"]
 version = "0.1.0"
 
 [tasks]
-postinstall = "pip install --no-build-isolation --no-deps --disable-pip-version-check submodules/diff-gaussian-rasterization submodules/simple-knn submodules/fused-ssim"
+postinstall = "pip install --no-build-isolation --no-deps --disable-pip-version-check submodules/diff-gaussian-rasterization submodules/fused-ssim"
 
 [system-requirements]
 cuda = "12.1"
@@ -24,6 +24,7 @@ torchvision = "*"
 plyfile = "*"
 tqdm = "*"
 ninja = "*"
+scipy = ">=1.10.1,<2"
 
 [pypi-dependencies]
 opencv-python = "*"
