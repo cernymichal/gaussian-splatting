@@ -32,6 +32,7 @@ class CameraInfo(NamedTuple):
     depth_params: dict
     image_path: str
     image_name: str
+    alpha_mask_path: str
     depth_path: str
     width: int
     height: int
@@ -96,7 +97,7 @@ def readColmapCameras(cam_extrinsics, cam_intrinsics, depths_params, images_fold
             FovX = focal2fov(focal_length_x, width)
         else:
             assert False, "Colmap camera model not handled: only undistorted datasets (PINHOLE or SIMPLE_PINHOLE cameras) supported!"
-
+        
         n_remove = len(extr.name.split('.')[-1]) + 1
         depth_params = None
         if depths_params is not None:
@@ -107,10 +108,13 @@ def readColmapCameras(cam_extrinsics, cam_intrinsics, depths_params, images_fold
 
         image_path = os.path.join(images_folder, extr.name)
         image_name = extr.name
+        alpha_mask_path = os.path.join(images_folder, f"{extr.name[:-n_remove]}_mask.png") 
+        if not os.path.isfile(alpha_mask_path):
+            alpha_mask_path = None
         depth_path = os.path.join(depths_folder, f"{extr.name[:-n_remove]}.png") if depths_folder != "" else ""
 
         cam_info = CameraInfo(uid=uid, R=R, T=T, FovY=FovY, FovX=FovX, depth_params=depth_params,
-                              image_path=image_path, image_name=image_name, depth_path=depth_path,
+                              image_path=image_path, image_name=image_name, alpha_mask_path=alpha_mask_path, depth_path=depth_path,
                               width=width, height=height, is_test=image_name in test_cam_names_list)
         cam_infos.append(cam_info)
 
@@ -262,11 +266,15 @@ def readCamerasFromTransforms(path, transformsfile, depths_folder, white_backgro
             FovY = fovy 
             FovX = fovx
 
+            alpha_mask_path = os.path.join(path, f"{image_name}_mask.png") 
+            if not os.path.isfile(alpha_mask_path):
+                alpha_mask_path = None
             depth_path = os.path.join(depths_folder, f"{image_name}.png") if depths_folder != "" else ""
 
             cam_infos.append(CameraInfo(uid=idx, R=R, T=T, FovY=FovY, FovX=FovX,
                             image_path=image_path, image_name=image_name,
-                            width=image.size[0], height=image.size[1], depth_path=depth_path, depth_params=None, is_test=is_test))
+                            width=image.size[0], height=image.size[1], alpha_mask_path=alpha_mask_path,
+                            depth_path=depth_path, depth_params=None, is_test=is_test))
             
     return cam_infos
 

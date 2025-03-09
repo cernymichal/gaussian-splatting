@@ -110,13 +110,18 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
         render_pkg = render(viewpoint_cam, gaussians, pipe, bg, use_trained_exp=dataset.train_test_exp, separate_sh=SPARSE_ADAM_AVAILABLE)
         image, viewspace_point_tensor, visibility_filter, radii = render_pkg["render"], render_pkg["viewspace_points"], render_pkg["visibility_filter"], render_pkg["radii"]
-
-        if viewpoint_cam.alpha_mask is not None:
-            alpha_mask = viewpoint_cam.alpha_mask.cuda()
-            image *= alpha_mask
-
+        
         # Loss
         gt_image = viewpoint_cam.original_image.cuda()
+        if opt.random_background and viewpoint_cam.alpha_mask is not None:
+            alpha_mask = viewpoint_cam.alpha_mask.cuda()
+            if dataset.white_background:
+                # gt_image = gt_image * alpha_mask + bg * (1 - alpha_mask)
+                gt_image = gt_image * alpha_mask + torch.einsum("c,ijk->cjk", bg, 1 - alpha_mask)
+            else: # Alpha is already premultiplied on black background
+                # gt_image = gt_image + bg * (1 - alpha_mask)
+                gt_image = gt_image + torch.einsum("c,ijk->cjk", bg, 1 - alpha_mask)
+
         Ll1 = l1_loss(image, gt_image)
         if FUSED_SSIM_AVAILABLE:
             ssim_value = fused_ssim(image.unsqueeze(0), gt_image.unsqueeze(0))
