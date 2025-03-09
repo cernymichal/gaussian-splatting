@@ -113,7 +113,12 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         
         # Loss
         gt_image = viewpoint_cam.original_image.cuda()
-        if opt.random_background and viewpoint_cam.alpha_mask is not None:
+        if opt.masked_loss and viewpoint_cam.alpha_mask is not None:
+            alpha_mask = viewpoint_cam.alpha_mask.cuda()
+            if dataset.white_background:
+                gt_image *= alpha_mask
+            image *= alpha_mask
+        elif opt.random_background and viewpoint_cam.alpha_mask is not None:
             alpha_mask = viewpoint_cam.alpha_mask.cuda()
             if dataset.white_background:
                 # gt_image = gt_image * alpha_mask + bg * (1 - alpha_mask)
