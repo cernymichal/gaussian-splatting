@@ -20,7 +20,8 @@ class Camera(nn.Module):
     def __init__(self, resolution, colmap_id, R, T, FoVx, FoVy, depth_params, image, alpha_mask, invdepthmap,
                  image_name, uid,
                  trans=np.array([0.0, 0.0, 0.0]), scale=1.0, data_device = "cuda",
-                 train_test_exp = False, is_test_dataset = False, is_test_view = False, white_background = False
+                 train_test_exp=False, is_test_dataset=False, is_test_view=False,
+                 white_background=False, background_color=[0, 0, 0]
                  ):
         super(Camera, self).__init__()
 
@@ -59,6 +60,8 @@ class Camera(nn.Module):
         self.original_image = gt_image.clamp(0.0, 1.0).to(self.data_device)
         if white_background:
             self.original_image *= self.alpha_mask
+        self.original_image += torch.einsum("c,ijk->cjk", torch.tensor(background_color, dtype=torch.float32, device="cuda"), 1 - self.alpha_mask)
+
         self.image_width = self.original_image.shape[2]
         self.image_height = self.original_image.shape[1]
 

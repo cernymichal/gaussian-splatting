@@ -55,11 +55,11 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         gaussians.restore(model_params, opt)
 
     background = None
-    if opt.background_color == "white":
+    if dataset.background_color == "white":
         background = [1, 1, 1]
-    elif opt.background_color == "black" or opt.background_color == "random":
+    elif dataset.background_color == "black" or dataset.background_color == "random":
         background = [0, 0, 0]
-    elif opt.background_color == "magenta":
+    elif dataset.background_color == "magenta":
         background = [1, 0, 1]
     else:
         raise ValueError("Unknown background color")
@@ -114,7 +114,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         if (iteration - 1) == debug_from:
             pipe.debug = True
 
-        bg = torch.rand((3), device="cuda") if opt.background_color == "random" else background
+        bg = torch.rand((3), device="cuda") if dataset.background_color == "random" else background
 
         render_pkg = render(viewpoint_cam, gaussians, pipe, bg, use_trained_exp=dataset.train_test_exp, separate_sh=SPARSE_ADAM_AVAILABLE)
         image, viewspace_point_tensor, visibility_filter, radii = render_pkg["render"], render_pkg["viewspace_points"], render_pkg["visibility_filter"], render_pkg["radii"]
@@ -123,7 +123,8 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         gt_image = viewpoint_cam.original_image.cuda()
         if viewpoint_cam.alpha_mask is not None:
             alpha_mask = viewpoint_cam.alpha_mask.cuda()
-            gt_image += torch.einsum("c,ijk->cjk", bg, 1 - alpha_mask)
+            if dataset.background_color == "random":
+                gt_image = gt_image + torch.einsum("c,ijk->cjk", bg, 1 - alpha_mask)
             if opt.masked_loss:
                 image *= alpha_mask
 
