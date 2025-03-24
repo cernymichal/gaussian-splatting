@@ -54,8 +54,16 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         (model_params, first_iter) = torch.load(checkpoint)
         gaussians.restore(model_params, opt)
 
-    bg_color = [1, 1, 1] if dataset.white_background else [0, 0, 0]
-    background = torch.tensor(bg_color, dtype=torch.float32, device="cuda")
+    background = None
+    if opt.background_color == "white":
+        background = [1, 1, 1]
+    elif opt.background_color == "black" or opt.background_color == "random":
+        background = [0, 0, 0]
+    elif opt.background_color == "magenta":
+        background = [1, 0, 1]
+    else:
+        raise ValueError("Unknown background color")
+    background = torch.tensor(background, dtype=torch.float32, device="cuda")
 
     iter_start = torch.cuda.Event(enable_timing = True)
     iter_end = torch.cuda.Event(enable_timing = True)
@@ -106,26 +114,18 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         if (iteration - 1) == debug_from:
             pipe.debug = True
 
-        bg = torch.rand((3), device="cuda") if opt.random_background else background
+        bg = torch.rand((3), device="cuda") if opt.background_color == "random" else background
 
         render_pkg = render(viewpoint_cam, gaussians, pipe, bg, use_trained_exp=dataset.train_test_exp, separate_sh=SPARSE_ADAM_AVAILABLE)
         image, viewspace_point_tensor, visibility_filter, radii = render_pkg["render"], render_pkg["viewspace_points"], render_pkg["visibility_filter"], render_pkg["radii"]
         
         # Loss
         gt_image = viewpoint_cam.original_image.cuda()
-        if opt.masked_loss and viewpoint_cam.alpha_mask is not None:
+        if viewpoint_cam.alpha_mask is not None:
             alpha_mask = viewpoint_cam.alpha_mask.cuda()
-            if dataset.white_background:
-                gt_image *= alpha_mask
-            image *= alpha_mask
-        elif opt.random_background and viewpoint_cam.alpha_mask is not None:
-            alpha_mask = viewpoint_cam.alpha_mask.cuda()
-            if dataset.white_background:
-                # gt_image = gt_image * alpha_mask + bg * (1 - alpha_mask)
-                gt_image = gt_image * alpha_mask + torch.einsum("c,ijk->cjk", bg, 1 - alpha_mask)
-            else: # Alpha is already premultiplied on black background
-                # gt_image = gt_image + bg * (1 - alpha_mask)
-                gt_image = gt_image + torch.einsum("c,ijk->cjk", bg, 1 - alpha_mask)
+            gt_image += torch.einsum("c,ijk->cjk", bg, 1 - alpha_mask)
+            if opt.masked_loss:
+                image *= alpha_mask
 
         Ll1 = l1_loss(image, gt_image)
         if FUSED_SSIM_AVAILABLE:
