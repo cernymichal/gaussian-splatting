@@ -48,6 +48,7 @@ class Camera(nn.Module):
             self.alpha_mask = PILtoTorch(alpha_mask, resolution)[0:1, ...].to(self.data_device)
         elif resized_image_rgb.shape[0] == 4:
             self.alpha_mask = resized_image_rgb[3:4, ...].to(self.data_device)
+            white_background = True # Not premultiplied
         else: 
             self.alpha_mask = torch.ones_like(resized_image_rgb[0:1, ...].to(self.data_device))
 
