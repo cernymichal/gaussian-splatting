@@ -8,6 +8,7 @@ version = "0.1.0"
 [tasks]
 install_deps = { cmd = "pip install --no-build-isolation --no-deps --disable-pip-version-check submodules/diff-gaussian-rasterization submodules/fused-ssim", outputs = ["submodules/diff-gaussian-rasterization/diff_gaussian_rasterization.egg-info/PKG-INFO", "submodules/fused-ssim/fused_ssim.egg-info/PKG-INFO"] }
 train = { cmd = "python train.py", depends-on = ["install_deps"] }
+convert = { cmd = "python convert.py", depends-on = ["install_deps"] }
 
 [system-requirements]
 cuda = "12.4"
@@ -23,6 +24,7 @@ plyfile = "*"
 tqdm = "*"
 ninja = "*"
 scipy = "*"
+colmap = ">=3.11.1,<4"
 
 [pypi-dependencies]
 opencv-python = "*"
