@@ -11,9 +11,8 @@
 
 import torch
 from scene import Scene
-import os
 from tqdm import tqdm
-from os import makedirs
+from pathlib import Path
 from gaussian_renderer import render
 import torchvision
 from utils.general_utils import safe_state
@@ -27,12 +26,12 @@ except:
     SPARSE_ADAM_AVAILABLE = False
 
 
-def render_set(model_path, name, iteration, views, gaussians, pipeline, background, train_test_exp, separate_sh):
-    render_path = os.path.join(model_path, name, "ours_{}".format(iteration), "renders")
-    gts_path = os.path.join(model_path, name, "ours_{}".format(iteration), "gt")
+def render_set(output_path, name, iteration, views, gaussians, pipeline, background, train_test_exp, separate_sh):
+    render_path = Path(output_path, name, "ours_{}".format(iteration), "renders")
+    gts_path = Path(output_path, name, "ours_{}".format(iteration), "gt")
 
-    makedirs(render_path, exist_ok=True)
-    makedirs(gts_path, exist_ok=True)
+    render_path.mkdir(parents=True, exist_ok=True)
+    gts_path.mkdir(parents=True, exist_ok=True)
 
     for idx, view in enumerate(tqdm(views, desc="Rendering progress")):
         rendering = render(view, gaussians, pipeline, background, use_trained_exp=train_test_exp, separate_sh=separate_sh)["render"]
@@ -42,22 +41,33 @@ def render_set(model_path, name, iteration, views, gaussians, pipeline, backgrou
             rendering = rendering[..., rendering.shape[-1] // 2:]
             gt = gt[..., gt.shape[-1] // 2:]
 
-        torchvision.utils.save_image(rendering, os.path.join(render_path, '{0:05d}'.format(idx) + ".png"))
-        torchvision.utils.save_image(gt, os.path.join(gts_path, '{0:05d}'.format(idx) + ".png"))
+        image_name = Path(view.image_name).stem
+        torchvision.utils.save_image(rendering, Path(render_path, image_name + ".png"))
+        torchvision.utils.save_image(gt, Path(gts_path, image_name + ".png"))
 
-def render_sets(dataset : ModelParams, iteration : int, pipeline : PipelineParams, skip_train : bool, skip_test : bool, separate_sh: bool):
+def render_sets(dataset : ModelParams, iteration : int, pipeline : PipelineParams, skip_train : bool, skip_test : bool, separate_sh: bool, output_folder: str = None):
     with torch.no_grad():
         gaussians = GaussianModel(dataset.sh_degree)
         scene = Scene(dataset, gaussians, load_iteration=iteration, shuffle=False)
 
-        bg_color = [1,1,1] if dataset.white_background else [0, 0, 0]
+        bg_color = None
+        if dataset.background_color == "white":
+            bg_color = [1, 1, 1]
+        elif dataset.background_color == "black" or dataset.background_color == "random":
+            bg_color = [0, 0, 0]
+        elif dataset.background_color == "magenta":
+            bg_color = [1, 0, 1]
+        else:
+            raise ValueError("Unknown background color")
         background = torch.tensor(bg_color, dtype=torch.float32, device="cuda")
 
+        output_path = Path(output_folder) if output_folder else Path(dataset.model_path)
+
         if not skip_train:
-             render_set(dataset.model_path, "train", scene.loaded_iter, scene.getTrainCameras(), gaussians, pipeline, background, dataset.train_test_exp, separate_sh)
+             render_set(output_path, "train", scene.loaded_iter, scene.getTrainCameras(), gaussians, pipeline, background, dataset.train_test_exp, separate_sh)
 
         if not skip_test:
-             render_set(dataset.model_path, "test", scene.loaded_iter, scene.getTestCameras(), gaussians, pipeline, background, dataset.train_test_exp, separate_sh)
+             render_set(output_path, "test", scene.loaded_iter, scene.getTestCameras(), gaussians, pipeline, background, dataset.train_test_exp, separate_sh)
 
 if __name__ == "__main__":
     # Set up command line argument parser
@@ -68,10 +78,11 @@ if __name__ == "__main__":
     parser.add_argument("--skip_train", action="store_true")
     parser.add_argument("--skip_test", action="store_true")
     parser.add_argument("--quiet", action="store_true")
+    parser.add_argument("--output_folder")
     args = get_combined_args(parser)
     print("Rendering " + args.model_path)
 
     # Initialize system state (RNG)
     safe_state(args.quiet)
 
-    render_sets(model.extract(args), args.iteration, pipeline.extract(args), args.skip_train, args.skip_test, SPARSE_ADAM_AVAILABLE)
+    render_sets(model.extract(args), args.iteration, pipeline.extract(args), args.skip_train, args.skip_test, SPARSE_ADAM_AVAILABLE, output_folder=args.output_folder)
