@@ -175,17 +175,29 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             if iteration < opt.densify_until_iter:
                 # Keep track of max radii in image-space for pruning
                 gaussians.max_radii2D[visibility_filter] = torch.max(gaussians.max_radii2D[visibility_filter], radii[visibility_filter])
-                gaussians.add_densification_stats(viewspace_xyz_tensor, visibility_filter)
+                gaussians.add_xyz_dens_stats(viewspace_xyz_tensor, visibility_filter)
 
                 if iteration > opt.densify_from_iter and iteration % opt.densification_interval == 0:
                     size_threshold = 20 if iteration > opt.opacity_reset_interval else None
-                    def feature_grad_schedule(iteration, threshold):
-                        return threshold * max(0.2, ((1 - iteration / opt.iterations) ** 1.1))
-                    feature_grad_threshold = feature_grad_schedule(iteration, opt.feature_grad_threshold)
-                    gaussians.densify_and_prune(opt.xyz_grad_threshold, feature_grad_threshold, 0.005, scene.cameras_extent, size_threshold, radii)
+                    gaussians.xyz_densify_and_prune(opt.xyz_grad_threshold, 0.005, scene.cameras_extent, size_threshold, radii)
                 
                 if iteration % opt.opacity_reset_interval == 0 or (dataset.white_background and iteration == opt.densify_from_iter):
                     gaussians.reset_opacity()
+            
+            # Feature-based densification
+            if opt.feature_densify_from_iter <= iteration < opt.feature_densify_until_iter:
+                gaussians.add_feature_dens_stats(visibility_filter)
+
+                if iteration != opt.feature_densify_from_iter and iteration % opt.feature_densification_interval == 0:
+                    def feature_grad_schedule(iteration, threshold):
+                        relative_iter = iteration - opt.feature_densify_from_iter
+                        iter_count = opt.feature_densify_until_iter - opt.feature_densify_from_iter
+                        return threshold * max(0.2, ((1 - relative_iter / iter_count) ** 1.1))
+                    feature_grad_threshold = feature_grad_schedule(iteration, opt.feature_grad_threshold)
+                    gaussians.feature_densify_and_prune(feature_grad_threshold, 0.005, opt.feature_densification_count)
+                
+                # if iteration % opt.opacity_reset_interval == 0:
+                #     gaussians.reset_opacity()
 
             # Optimizer step
             if iteration < opt.iterations:
