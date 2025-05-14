@@ -506,10 +506,10 @@ class GaussianModel:
         mean = padded_grad.mean()
         std = padded_grad.std()
 
-        print("Max grad: ", max)
-        print("Mean grad: ", mean)
-        print("Std grad: ", std)
-        print("Grad threshold: ", grad_threshold)
+        # print("Max grad: ", max)
+        # print("Mean grad: ", mean)
+        # print("Std grad: ", std)
+        # print("Grad threshold: ", grad_threshold)
 
         # threshold by distribution
         selected_pts_mask = torch.where(padded_grad >= grad_threshold, True, False)
@@ -605,7 +605,7 @@ class GaussianModel:
 
         self.densification_postfix(new_xyz, new_features_dc, new_features_rest, new_opacities, new_scaling, new_rotation)
 
-        print("New points: ", new_xyz.shape[0])
+        # print("New points: ", new_xyz.shape[0])
 
         prune_mask = torch.cat((selected_pts_mask, torch.zeros(N * selected_pts_mask.sum(), device="cuda", dtype=bool)))
         return prune_mask
