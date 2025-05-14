@@ -538,31 +538,65 @@ class GaussianModel:
             samples = (abs(samples).view(-1,N,3) * dirs).view(-1,3)
             # computes the new position of the points
             new_xyz = torch.bmm(rots, samples.unsqueeze(-1)).squeeze(-1) + self.get_xyz[selected_pts_mask].repeat(N, 1)
-            new_scaling = self.scaling_inverse_activation(self.get_scaling[selected_pts_mask].repeat(N,1) / (0.8*N))
+            new_scaling = self.scaling_inverse_activation(stds / (0.8*N))
         elif N == 6:
-            # Only major axes + center
+            # Only axes
             stds = self.get_scaling[selected_pts_mask].repeat(N,1)
             means =torch.zeros((stds.size(0), 3),device="cuda")
             samples = torch.normal(mean=means, std=stds)
-            rots = build_rotation(self._rotation[selected_pts_mask]).repeat(N,1,1)
+            
             dirs = torch.tensor([[1,0,0],
                                 [-1,0,0],
                                 [0,1,0],
                                 [0,-1,0],
                                 [0,0,1],
-                                [0,0,-1],
-                                [0,0,0]], 
+                                [0,0,-1]], 
                                 device="cuda").float()
-            # move gaussian to the directions
             samples = (abs(samples).view(-1,N,3) * dirs).view(-1,3)
-            # computes the new position of the points
+            
+            rots = build_rotation(self._rotation[selected_pts_mask]).repeat(N,1,1)
             new_xyz = torch.bmm(rots, samples.unsqueeze(-1)).squeeze(-1) + self.get_xyz[selected_pts_mask].repeat(N, 1)
-            new_scaling = self.scaling_inverse_activation(self.get_scaling[selected_pts_mask].repeat(N,1) / (0.8*N))
+            new_scaling = self.scaling_inverse_activation(stds / 3)
         elif N == 4:
-            # 4 points in a plane
-            raise NotImplementedError() # TODO
+            # Only 2 major axes
+            stds = self.get_scaling[selected_pts_mask].repeat(N,1)
+
+            _, sorted_idx = torch.sort(stds, dim=1, descending=True)
+            major_axes = sorted_idx[:, :2]
+            major_stds = torch.gather(stds, dim=1, index=major_axes)
+
+            means = torch.zeros((stds.size(0), 2), device="cuda")
+            samples = torch.normal(mean=means, std=major_stds)
+            dirs = torch.tensor([[1,0], [-1,0], [0,1], [0,-1]], device="cuda", dtype=torch.float32)
+
+            samples = (abs(samples).view(-1,N,2) * dirs).view(-1,2)
+            relative_points = torch.zeros((stds.size(0), 3), device="cuda")
+            relative_points.scatter_(1, major_axes, samples)
+
+            rots = build_rotation(self._rotation[selected_pts_mask]).repeat(N,1,1)
+            new_xyz = torch.bmm(rots, relative_points.unsqueeze(-1)).squeeze(-1) + self.get_xyz[selected_pts_mask].repeat(N, 1)
+            new_scaling = self.scaling_inverse_activation(stds / 2)
+        elif N == 2:
+            # Only 2 major axis
+            stds = self.get_scaling[selected_pts_mask].repeat(N,1)
+
+            _, sorted_idx = torch.sort(stds, dim=1, descending=True)
+            major_axes = sorted_idx[:, :1]
+            major_stds = torch.gather(stds, dim=1, index=major_axes).squeeze(1)
+
+            means = torch.zeros((stds.size(0)), device="cuda")
+            samples = torch.normal(mean=means, std=major_stds)
+            dirs = torch.tensor([1, -1], device="cuda", dtype=torch.float32)
+
+            samples = (abs(samples).view(-1, N) * dirs).view(-1, 1)
+            relative_points = torch.zeros((stds.size(0), 3), device="cuda")
+            relative_points.scatter_(1, major_axes, samples)
+
+            rots = build_rotation(self._rotation[selected_pts_mask]).repeat(N,1,1)
+            new_xyz = torch.bmm(rots, relative_points.unsqueeze(-1)).squeeze(-1) + self.get_xyz[selected_pts_mask].repeat(N, 1)
+            new_scaling = self.scaling_inverse_activation(stds / 2)
         else:
-            raise NotImplementedError("N should be 4, 6 or 9")
+            raise NotImplementedError("N should be 2, 4, 6 or 9")
 
         new_rotation = self._rotation[selected_pts_mask].repeat(N,1)
         new_features_dc = self._features_dc[selected_pts_mask].repeat(N,1,1)

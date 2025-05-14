@@ -192,7 +192,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                     def feature_grad_schedule(iteration, threshold):
                         relative_iter = iteration - opt.feature_densify_from_iter
                         iter_count = opt.feature_densify_until_iter - opt.feature_densify_from_iter
-                        return threshold * max(0.2, ((1 - relative_iter / iter_count) ** 1.1))
+                        return threshold * (1 - relative_iter / iter_count / 2)
                     feature_grad_threshold = feature_grad_schedule(iteration, opt.feature_grad_threshold)
                     gaussians.feature_densify_and_prune(feature_grad_threshold, 0.005, opt.feature_densification_count)
                 
