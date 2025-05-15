@@ -614,7 +614,7 @@ class GaussianModel:
         feature_grads = self.feature_gradient_accum / self.feature_gradient_denom
         feature_grads[~feature_grads.isfinite()] = 0.0
 
-        # ReGS densification
+        # ReGS-like densification
         prune_mask = self.densify_and_split_feature(feature_grads, feature_grad_threshold, N=split_count)
         
         prune_mask = torch.logical_or(prune_mask, (self.get_opacity < min_opacity).squeeze())

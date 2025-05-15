@@ -96,7 +96,7 @@ class OptimizationParams(ParamGroup):
         self.xyz_grad_threshold = 0.0002
         self.feature_densification_interval = 400
         self.feature_densify_from_iter = 20_000
-        self.feature_densify_until_iter = 24_000
+        self.feature_densify_until_iter = 0 # 24_000
         self.feature_grad_threshold = 0.000001
         self.feature_densification_count = 4
         self.depth_l1_weight_init = 1.0
