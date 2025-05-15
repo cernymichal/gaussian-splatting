@@ -26,7 +26,7 @@ except:
     SPARSE_ADAM_AVAILABLE = False
 
 
-def render_set(output_path, name, iteration, views, gaussians, pipeline, background, train_test_exp, separate_sh):
+def render_set(output_path, name, iteration, views, gaussians, pipeline, background, train_test_exp, separate_sh, resolution_scale: float = 1.0):
     render_path = Path(output_path, name, "ours_{}".format(iteration), "renders")
     gts_path = Path(output_path, name, "ours_{}".format(iteration), "gt")
 
@@ -34,7 +34,9 @@ def render_set(output_path, name, iteration, views, gaussians, pipeline, backgro
     gts_path.mkdir(parents=True, exist_ok=True)
 
     for idx, view in enumerate(tqdm(views, desc="Rendering progress")):
-        rendering = render(view, gaussians, pipeline, background, use_trained_exp=train_test_exp, separate_sh=separate_sh)["render"]
+        view.image_height = int(view.image_height * resolution_scale)
+        view.image_width = int(view.image_width * resolution_scale)
+        rendering = render(view, gaussians, pipeline, background, use_trained_exp=train_test_exp, separate_sh=separate_sh,)["render"]
         gt = view.original_image[0:3, :, :]
 
         if args.train_test_exp:
@@ -45,7 +47,7 @@ def render_set(output_path, name, iteration, views, gaussians, pipeline, backgro
         torchvision.utils.save_image(rendering, Path(render_path, image_name + ".png"))
         torchvision.utils.save_image(gt, Path(gts_path, image_name + ".png"))
 
-def render_sets(dataset : ModelParams, iteration : int, pipeline : PipelineParams, skip_train : bool, skip_test : bool, separate_sh: bool, output_folder: str = None):
+def render_sets(dataset : ModelParams, iteration : int, pipeline : PipelineParams, skip_train : bool, skip_test : bool, separate_sh: bool, output_folder: str = None, resolution_scale: float = 1.0):
     with torch.no_grad():
         gaussians = GaussianModel(dataset.sh_degree)
         scene = Scene(dataset, gaussians, load_iteration=iteration, shuffle=False)
@@ -64,10 +66,10 @@ def render_sets(dataset : ModelParams, iteration : int, pipeline : PipelineParam
         output_path = Path(output_folder) if output_folder else Path(dataset.model_path)
 
         if not skip_train:
-             render_set(output_path, "train", scene.loaded_iter, scene.getTrainCameras(), gaussians, pipeline, background, dataset.train_test_exp, separate_sh)
+             render_set(output_path, "train", scene.loaded_iter, scene.getTrainCameras(), gaussians, pipeline, background, dataset.train_test_exp, separate_sh, resolution_scale=resolution_scale)
 
         if not skip_test:
-             render_set(output_path, "test", scene.loaded_iter, scene.getTestCameras(), gaussians, pipeline, background, dataset.train_test_exp, separate_sh)
+             render_set(output_path, "test", scene.loaded_iter, scene.getTestCameras(), gaussians, pipeline, background, dataset.train_test_exp, separate_sh, resolution_scale=resolution_scale)
 
 if __name__ == "__main__":
     # Set up command line argument parser
@@ -79,10 +81,11 @@ if __name__ == "__main__":
     parser.add_argument("--skip_test", action="store_true")
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--output_folder")
+    parser.add_argument("--resolution_scale", default=1.0, type=float)
     args = get_combined_args(parser)
     print("Rendering " + args.model_path)
 
     # Initialize system state (RNG)
     safe_state(args.quiet)
 
-    render_sets(model.extract(args), args.iteration, pipeline.extract(args), args.skip_train, args.skip_test, SPARSE_ADAM_AVAILABLE, output_folder=args.output_folder)
+    render_sets(model.extract(args), args.iteration, pipeline.extract(args), args.skip_train, args.skip_test, SPARSE_ADAM_AVAILABLE, output_folder=args.output_folder, resolution_scale=args.resolution_scale)
